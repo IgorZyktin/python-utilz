@@ -1,0 +1,27 @@
+name: python-utilz
+on: [ push, pull_request ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -U pip
+          pip install uv
+          uv sync --all-extras
+
+      - name: Lint with Ruff
+        run: uv run ruff check --output-format=github .
+
+      - name: Test with mypy
+        run: uv run mypy ./python_utilz
+
+      - name: Test with pytest
+        run: uv run pytest ./python_utilz/tests/
