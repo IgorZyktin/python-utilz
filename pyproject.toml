@@ -1,6 +1,6 @@
 [project]
 name = "python-utilz"
-version = "0.1.0"
+version = "0.1.1"
 description = "Set of handy python utilities"
 authors = [
     { name = "Igor Zyktin", email = "nicord@yandex.ru" },
@@ -8,6 +8,10 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
