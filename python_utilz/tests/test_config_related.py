@@ -9,10 +9,10 @@ from unittest.mock import patch
 import pytest
 
 from python_utilz.config_related import BaseConfig
+from python_utilz.config_related import ConfigValidationError
 from python_utilz.config_related import SecretStr
 from python_utilz.config_related import from_env
 from python_utilz.config_related import looks_like_boolean
-from python_utilz.config_related import ConfigValidationError
 
 
 def test_base_config_easy():
@@ -270,15 +270,19 @@ def test_base_config_wrong_logic():
     def bigger_than_one(value: Any) -> Any:
         """Raise if we've got wrong value."""
         if int(value) <= 1:
-            raise ConfigValidationError('Not bigger')
+            msg = 'Not bigger'
+            raise ConfigValidationError(msg)
 
     @dataclass
     class BadConfig(BaseConfig):
         variable_1: Annotated[str, bigger_than_one]
 
     # act + assert
-    with patch.dict(
-        'os.environ',
-        BADCONFIG__VARIABLE_1='1',
-    ), pytest.raises(ConfigValidationError, match='Not bigger'):
+    with (
+        patch.dict(
+            'os.environ',
+            BADCONFIG__VARIABLE_1='1',
+        ),
+        pytest.raises(ConfigValidationError, match='Not bigger'),
+    ):
         from_env(BadConfig, _output=output)
