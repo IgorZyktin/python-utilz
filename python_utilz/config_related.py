@@ -98,7 +98,9 @@ def looks_like_boolean(value: str) -> bool:
 
 def _is_excluded(field: Field, field_exclude_prefix: str) -> bool:
     """Return true if this field is excluded from env vars."""
-    return field_exclude_prefix and field.name.startswith(field_exclude_prefix)
+    return bool(
+        field_exclude_prefix and field.name.startswith(field_exclude_prefix)
+    )
 
 
 def _has_no_default(field: Field) -> str | None:
