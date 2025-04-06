@@ -10,6 +10,7 @@ import pytest
 
 from python_utilz.config_related import BaseConfig
 from python_utilz.config_related import ConfigValidationError
+from python_utilz.config_related import EnvAlias
 from python_utilz.config_related import SecretStr
 from python_utilz.config_related import from_env
 from python_utilz.config_related import looks_like_boolean
@@ -162,7 +163,7 @@ def test_base_config_hard():
 
 
 def test_base_config_union():
-    """Must raise an exception."""
+    """Must fail to create config because of the Union type."""
     # arrange
     output = mock.Mock()
 
@@ -238,7 +239,7 @@ def test_secret_str_get():
 
 
 def test_base_config_wrong_type():
-    """Must raise an exception."""
+    """Must fail to create config because wrong type is used."""
     # arrange
     output = mock.Mock()
 
@@ -263,7 +264,7 @@ def test_base_config_wrong_type():
 
 
 def test_base_config_wrong_logic():
-    """Must raise an exception."""
+    """Must fail to create config because wrong value is used."""
     # arrange
     output = mock.Mock()
 
@@ -289,3 +290,46 @@ def test_base_config_wrong_logic():
 
     # assert
     output.assert_has_calls([mock.call('Not bigger')])
+
+
+def test_base_config_alias_good():
+    """Must find variable using different name."""
+    # arrange
+
+    @dataclass
+    class GoodConfig(BaseConfig):
+        variable_1: Annotated[str, EnvAlias('MY_OTHER_VARIABLE')]
+
+    # act
+    with patch.dict(
+        'os.environ',
+        MY_OTHER_VARIABLE='1',
+    ):
+        config = from_env(GoodConfig)
+
+    # assert
+    assert config.variable_1 == '1'
+
+
+def test_base_config_alias_bad():
+    """Must fail to create config because no env variables are set."""
+    # arrange
+    output = mock.Mock()
+
+    @dataclass
+    class GoodConfig(BaseConfig):
+        variable_1: Annotated[str, EnvAlias('_A', '_B', '_C')]
+
+    # act
+    with pytest.raises(SystemExit):
+        from_env(GoodConfig, output=output)
+
+    # assert
+    output.assert_has_calls(
+        [
+            mock.call(
+                'None of expected environment variables are set: '
+                "'GOODCONFIG__VARIABLE_1', '_A', '_B', '_C'"
+            )
+        ]
+    )

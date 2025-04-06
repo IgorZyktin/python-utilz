@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from dataclasses import MISSING
+from dataclasses import Field
 from dataclasses import dataclass
 from dataclasses import fields
 import os
@@ -18,6 +19,7 @@ from python_utilz.strings_related import exc_to_str
 __all__ = [
     'BaseConfig',
     'ConfigValidationError',
+    'EnvAlias',
     'SecretStr',
     'from_env',
     'looks_like_boolean',
@@ -57,6 +59,35 @@ class SecretStr:
         return self.__str__()
 
 
+class EnvAlias:
+    """Alternative name or names of environment variable for a field.
+
+    Alias is expected to be the rightmost element in Annotated hint.
+    """
+
+    def __init__(self, *names: str) -> None:
+        """Initialize instance."""
+        self.names = names
+
+    def __call__(self, value: str | None) -> str | None:
+        """Do nothing, juts return."""
+        return value
+
+    def find_matching(self, env_name: str) -> tuple[str | None, str | None]:
+        """Try getting value via another name."""
+        for name in self.names:
+            value = os.environ.get(name)
+
+            if value is not None:
+                return value, None
+
+        variables = ', '.join(map(repr, (env_name, *self.names)))
+        return (
+            None,
+            f'None of expected environment variables are set: {variables}',
+        )
+
+
 T_co = TypeVar('T_co', bound=BaseConfig, covariant=True)
 
 
@@ -65,7 +96,29 @@ def looks_like_boolean(value: str) -> bool:
     return value.lower() == 'true'
 
 
-def from_env(  # noqa: C901, PLR0912
+def _is_excluded(field: Field, field_exclude_prefix: str) -> bool:
+    """Return true if this field is excluded from env vars."""
+    return field_exclude_prefix and field.name.startswith(field_exclude_prefix)
+
+
+def _has_no_default(field: Field) -> str | None:
+    """Return error message if field expects a value."""
+    if field.default is MISSING:
+        return f'Field {field.name!r} is supposed to have a default value'
+    return None
+
+
+def _is_union(field: Field) -> str | None:
+    """Return error message if field is a Union type."""
+    if isinstance(field.type, types.UnionType):
+        return (
+            f'Config values are not supposed '
+            f'to be of Union type: {field.name}: {field.type}'
+        )
+    return None
+
+
+def from_env(  # noqa: C901, PLR0912, PLR0915
     model_type: type[T_co],
     *,
     env_prefix: str = '',
@@ -73,6 +126,7 @@ def from_env(  # noqa: C901, PLR0912
     field_exclude_prefix: str = '_',
     output: Callable = print,
     _prefixes: tuple[str, ...] | None = None,
+    _terminate: Callable = lambda: sys.exit(1),
 ) -> T_co:
     """Build instance from environment variables."""
     errors: list[str] = []
@@ -83,37 +137,31 @@ def from_env(  # noqa: C901, PLR0912
         _prefixes = _prefixes or (env_prefix, env_separator)
 
     for field in fields(model_type):
-        if field_exclude_prefix and field.name.startswith(
-            field_exclude_prefix
-        ):
-            if field.default is MISSING:
-                msg = (
-                    f'Field {field.name!r} is supposed to have a default value'
-                )
+        if _is_excluded(field, field_exclude_prefix):
+            msg = _has_no_default(field)
+            if msg:
                 errors.append(msg)
             continue
 
-        check_nested = True
-        if get_origin(field.type) is Annotated:
-            expected_type, *casting_callables = get_args(field.type)
-        elif isinstance(field.type, types.UnionType):
-            msg = (
-                f'Config values are not supposed '
-                f'to be of Union type: {field.name}: {field.type}'
-            )
+        msg = _is_union(field)
+        if msg:
             errors.append(msg)
             continue
+
+        if get_origin(field.type) is Annotated:
+            expected_type, *casting_callables = get_args(field.type)
         else:
             expected_type = field.type
             casting_callables = [field.type]
 
-        if check_nested and issubclass(expected_type, BaseConfig):
+        if issubclass(expected_type, BaseConfig):
             value = from_env(
                 model_type=expected_type,
                 env_prefix='',
                 field_exclude_prefix=field_exclude_prefix,
                 output=output,
                 _prefixes=(*_prefixes, field.name.upper(), env_separator),
+                _terminate=_terminate,
             )
             casting_callables.pop()
 
@@ -122,6 +170,13 @@ def from_env(  # noqa: C901, PLR0912
             env_name = f'{prefix}{field.name}'.upper()
             default = None if field.default is MISSING else field.default
             value = os.environ.get(env_name, default)
+
+            if value is None and isinstance(casting_callables[-1], EnvAlias):
+                value, msg = casting_callables[-1].find_matching(env_name)
+
+                if msg:
+                    errors.append(msg)
+                    continue
 
             if value is None:
                 msg = f'Environment variable {env_name!r} is not set'
@@ -149,6 +204,6 @@ def from_env(  # noqa: C901, PLR0912
     if errors:
         for error in errors:
             output(error)
-        sys.exit(1)
+        _terminate()
 
     return model_type(**attributes)
