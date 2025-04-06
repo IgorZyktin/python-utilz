@@ -170,8 +170,12 @@ def from_env(  # noqa: C901, PLR0912, PLR0915
         else:
             prefix = ''.join(_prefixes)
             env_name = f'{prefix}{field.name}'.upper()
-            default = None if field.default is MISSING else field.default
-            value = os.environ.get(env_name, default)
+            value = os.environ.get(env_name)
+
+            if value is None and field.default is not MISSING:
+                # using default without data casting
+                value = field.default
+                casting_callables = []
 
             if value is None and isinstance(casting_callables[-1], EnvAlias):
                 value, msg = casting_callables[-1].find_matching(env_name)

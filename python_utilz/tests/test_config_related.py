@@ -1,6 +1,7 @@
 """Tests."""
 
 from dataclasses import dataclass
+import json
 from typing import Annotated
 from typing import Any
 from unittest import mock
@@ -245,10 +246,16 @@ def test_base_config_wrong_type():
 
     @dataclass
     class BadConfig(BaseConfig):
-        variable_1: Annotated[str, int] = 'test'
+        variable_1: Annotated[str, int]
 
     # act
-    with pytest.raises(SystemExit):
+    with (
+        patch.dict(
+            'os.environ',
+            BADCONFIG__VARIABLE_1='test',
+        ),
+        pytest.raises(SystemExit),
+    ):
         from_env(BadConfig, output=output)
 
     # assert
@@ -317,19 +324,35 @@ def test_base_config_alias_bad():
     output = mock.Mock()
 
     @dataclass
-    class GoodConfig(BaseConfig):
+    class BadConfig(BaseConfig):
         variable_1: Annotated[str, EnvAlias('_A', '_B', '_C')]
 
     # act
     with pytest.raises(SystemExit):
-        from_env(GoodConfig, output=output)
+        from_env(BadConfig, output=output)
 
     # assert
     output.assert_has_calls(
         [
             mock.call(
                 'None of expected environment variables are set: '
-                "'GOODCONFIG__VARIABLE_1', '_A', '_B', '_C'"
+                "'BADCONFIG__VARIABLE_1', '_A', '_B', '_C'"
             )
         ]
     )
+
+
+def test_base_config_default():
+    """Must create config using default."""
+    # arrange
+    output = mock.Mock()
+
+    @dataclass
+    class GoodConfig(BaseConfig):
+        variable_1: Annotated[tuple, json.loads] = ('key',)
+
+    # act
+    config = from_env(GoodConfig, output=output)
+
+    # assert
+    assert config.variable_1 == ('key',)
