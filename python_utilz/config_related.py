@@ -71,8 +71,8 @@ def from_env(  # noqa: C901, PLR0912
     env_prefix: str = '',
     env_separator: str = '__',
     field_exclude_prefix: str = '_',
+    output: Callable = print,
     _prefixes: tuple[str, ...] | None = None,
-    _output: Callable = print,
 ) -> T_co:
     """Build instance from environment variables."""
     errors: list[str] = []
@@ -112,6 +112,7 @@ def from_env(  # noqa: C901, PLR0912
                 model_type=expected_type,
                 env_prefix='',
                 field_exclude_prefix=field_exclude_prefix,
+                output=output,
                 _prefixes=(*_prefixes, field.name.upper(), env_separator),
             )
             casting_callables.pop()
@@ -131,8 +132,9 @@ def from_env(  # noqa: C901, PLR0912
         for _callable in casting_callables:
             try:
                 final_value = _callable(final_value)
-            except ConfigValidationError:
-                raise
+            except ConfigValidationError as exc:
+                errors.append(str(exc))
+                break
             except Exception as exc:
                 msg = (
                     f'Failed to convert {field.name!r} '
@@ -146,7 +148,7 @@ def from_env(  # noqa: C901, PLR0912
 
     if errors:
         for error in errors:
-            _output(error)
+            output(error)
         sys.exit(1)
 
     return model_type(**attributes)

@@ -60,7 +60,7 @@ def test_base_config_skipped_unset():
         ),
         pytest.raises(SystemExit),
     ):
-        from_env(BadConfig, _output=output)
+        from_env(BadConfig, output=output)
 
     # assert
     output.assert_has_calls(
@@ -90,7 +90,7 @@ def test_base_config_skipped():
         EASYCONFIG__VARIABLE_1='1',
         EASYCONFIG__VARIABLE_2='string',
     ):
-        config = from_env(EasyConfig, _output=output)
+        config = from_env(EasyConfig, output=output)
 
     # assert
     assert config.variable_1 == 1
@@ -173,7 +173,7 @@ def test_base_config_union():
 
     # act + assert
     with pytest.raises(SystemExit):
-        from_env(BadConfig, _output=output)
+        from_env(BadConfig, output=output)
 
     output.assert_has_calls(
         [
@@ -248,7 +248,7 @@ def test_base_config_wrong_type():
 
     # act
     with pytest.raises(SystemExit):
-        from_env(BadConfig, _output=output)
+        from_env(BadConfig, output=output)
 
     # assert
     output.assert_has_calls(
@@ -277,12 +277,15 @@ def test_base_config_wrong_logic():
     class BadConfig(BaseConfig):
         variable_1: Annotated[str, bigger_than_one]
 
-    # act + assert
+    # act
     with (
         patch.dict(
             'os.environ',
             BADCONFIG__VARIABLE_1='1',
         ),
-        pytest.raises(ConfigValidationError, match='Not bigger'),
+        pytest.raises(SystemExit),
     ):
-        from_env(BadConfig, _output=output)
+        from_env(BadConfig, output=output)
+
+    # assert
+    output.assert_has_calls([mock.call('Not bigger')])
