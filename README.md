@@ -41,7 +41,7 @@ print(repr(pu.exc_to_str(TimeoutError('test'))))
 # 'TimeoutError: test'
 ```
 
-### Check UUID corrects without casting
+### Check UUID is correct without casting
 
 When you want to check UUID, but do not want try-except on `UUID(value)`.
 
