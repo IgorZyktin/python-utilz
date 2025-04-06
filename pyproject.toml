@@ -1,6 +1,6 @@
 [project]
 name = "python-utilz"
-version = "0.1.3"
+version = "0.1.4"
 description = "Set of handy python utilities"
 authors = [
     { name = "Igor Zyktin", email = "nicord@yandex.ru" },
