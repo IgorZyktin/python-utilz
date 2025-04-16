@@ -17,8 +17,11 @@ jobs:
           pip install uv
           uv sync --all-extras
 
-      - name: Lint with Ruff
-        run: uv run ruff check --output-format=github .
+      - name: Format with Ruff
+        run: uv run ruff format --diff .
+
+      - name: Check with Ruff
+        run: uv run ruff check --diff --output-format=github .
 
       - name: Test with mypy
         run: uv run mypy ./python_utilz
