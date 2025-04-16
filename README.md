@@ -101,26 +101,3 @@ import python_utilz as pu
 print(pu.now())
 # 2025-03-21 18:13:34.954740+00:00
 ```
-
-### Config from env
-
-Creates simple config from environment variables. Smaller variant of pydantic-settings.
-
-```python
-from dataclasses import dataclass
-
-import python_utilz as pu
-
-
-@dataclass
-class Database(pu.BaseConfig):
-    url: str
-    timeout: int
-
-
-# export MY_VAR__URL=https://site.com
-# export MY_VAR__TIMEOUT=10
-config = pu.from_env(Database, env_prefix='my_var')
-print(config)
-# Database(url='https://site.com', timeout=10)
-```
